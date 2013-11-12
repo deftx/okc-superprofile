@@ -1,6 +1,7 @@
 /*jshint camelcase: false*/
 // Generated on 2013-11-11 using generator-chrome-extension 0.2.5
 'use strict';
+
 var mountFolder = function (connect, dir) {
     return connect.static(require('path').resolve(dir));
 };
@@ -45,6 +46,21 @@ module.exports = function (grunt) {
             mustache: {
                 files: ['<%= yeoman.app %>/scripts/templates/*.mustache'],
                 tasks: ['mustache']
+            },
+            reload: {
+                files: [
+                    '<%= yeoman.app %>/*.html',
+                    '{.tmp,<%= yeoman.app %>}/css/{,*/}*.css',
+                    '{.tmp,<%= yeoman.app %>}/scripts/{,*/}*.js',
+                    '{.tmp,<%= yeoman.app %>}/scripts/modules/**/.js',
+                    '<%= yeoman.app %>/images/{,*/}*.{png,jpg,jpeg,gif,webp}'
+                ],
+                tasks: [ 'open:reload' ]
+            }
+        },
+        open: {
+            reload: {
+                path: "http://reload.extensions"
             }
         },
         connect: {
@@ -291,6 +307,9 @@ module.exports = function (grunt) {
         }
     });
 
+    grunt.registerTask('dev', [
+        'watch'
+    ]);
     grunt.registerTask('test', [
         'clean:server',
         'concurrent:test',
