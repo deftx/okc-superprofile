@@ -273,9 +273,18 @@ var crawl = function() {
             this.getCrawlData(function(crawlData) {
                 console.log(crawlData);
 
-                $.post(options.backendUrl, { crawlData: crawlData }, function(data) {
-                    console.log(data);
-                });
+                var toSubmit = [];
+
+                while(toSubmit.length < 20) {
+                    toSubmit.push(crawlData.shift());
+                };
+
+                storage.set({crawlData:crawlData}, function() {
+                    $.post(options.backendUrl, { crawlData: toSubmit }, function(data) {
+                        console.log(data);
+                    });
+                })
+
 
                 //that.stop(true);
             })
