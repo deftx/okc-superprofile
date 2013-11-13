@@ -8,8 +8,9 @@ var crawl = function() {
     var storage = chrome.storage.local;
 
     var options = {
-        numUsersToGet: 100,
-        backendUrl: 'http://localhost:8080/okc-superprofile-backend/public/index.php/rawprofile'
+        numUsersToGet: 250,
+//        backendUrl: 'http://localhost:8080/okc-superprofile-backend/public/index.php/rawprofile'
+        backendUrl: 'http://localhost/p/okc-superprofile-backend/public/index.php/rawprofile'
     };
 
     var renderTemplate = function(view) {
@@ -43,6 +44,7 @@ var crawl = function() {
             crawl().getCrawlData(function(crawlData) {
                 if (crawlData.length > 0) {
                     $(".crawldata").show();
+                    $(".crawldata .crawl_count").html(crawlData.length);
                 }
             });
         },
@@ -114,9 +116,11 @@ var crawl = function() {
             });
         },
         profile: function() {
-            storage.get(['crawling'], function(items) {
+            storage.get(['crawling','toCrawl'], function(items) {
                 if (items.crawling) {
                     renderTemplate({});
+
+                    console.log('toCrawl: '+items.toCrawl.length);
 
                     setTimeout(function() {
                         console.log('Crawling profile...');
@@ -279,14 +283,16 @@ var crawl = function() {
                     toSubmit.push(crawlData.shift());
                 };
 
-                storage.set({crawlData:crawlData}, function() {
+                storage.set({ crawlData: crawlData }, function() {
                     $.post(options.backendUrl, { crawlData: toSubmit }, function(data) {
-                        console.log(data);
+                        if (crawlData.length > 0) {
+                            console.log("To submit: "+crawlData.length);
+                            that.submit();
+                        } else {
+                            //that.stop(true);
+                        }
                     });
                 })
-
-
-                //that.stop(true);
             })
         },
         redirect: function(url) {
