@@ -8,7 +8,8 @@ var crawl = function() {
     var storage = chrome.storage.local;
 
     var options = {
-        backendUrl: 'http://localhost:8080/okc-superprofile-backend/public/index.php/profile'
+        numUsersToGet: 100,
+        backendUrl: 'http://localhost:8080/okc-superprofile-backend/public/index.php/rawprofile'
     };
 
     var renderTemplate = function(view) {
@@ -19,6 +20,10 @@ var crawl = function() {
 
         $("#okc_crawler > div").html(out);
     };
+
+    var randomRange = function(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
 
     /*
      * Routes
@@ -31,6 +36,7 @@ var crawl = function() {
             template = null;
 
             $(document).on('click', '#okc_crawler_stop', function() {
+                console.log('Clearing...');
                 crawl().stop(true);
             });
 
@@ -48,22 +54,59 @@ var crawl = function() {
                 template = templates[route];
             }
         },
-        favorites: function() {
+        match: function() {
             renderTemplate({});
 
-            $(document).on('click', '#okc_crawler_crawl', function() {
-                var toCrawl = [];
-                $(".user_list .user_row_item").each(function(k,v) {
-                    var user = {
-                        username: $(".user_name a", v).text()
+            storage.get('toCrawl', function(items) {
+                if (items.toCrawl && items.toCrawl.length > 0) {
+                    $("#okc_crawler_resume").show();
+                }
+
+                console.log("Stored users: " + items.toCrawl.length);
+            });
+
+            var getUsers = function(toCrawl)
+            {
+                $("#okc_crawler_buttons").hide();
+                $("#okc_crawler_crawling").show();
+
+                var interval = setInterval(function() {
+                    $(document).scrollTop($(document).height());
+
+                    console.log(toCrawl.length);
+
+                    storage.set({toCrawl: toCrawl}, function() {
+                        if (toCrawl.length >= options.numUsersToGet) {
+                            console.log('Enough!');
+
+                            crawl().start(toCrawl);
+
+                            clearInterval(interval);
+                        }
+
+                        $(".match_row").each(function(k,v) {
+                            var username = $(".username", v).text().replace(/^\s\s*/, '').replace(/\s\s*$/, '');
+                            var replies = $(".stoplight", v);
+
+                            // Only crawl dudes that reply selectively or
+                            if ((replies.hasClass('yellow') || replies.hasClass('red')) && toCrawl.indexOf(username) === -1) {
+                                toCrawl.push(username);
+                            }
+                        });
+                    });
+                }, 2000);
+            }
+
+            $(document).on('click', '#okc_crawler_resume', function() {
+                storage.get("toCrawl", function(items) {
+                    if (items.toCrawl) {
+                        getUsers(items.toCrawl);
                     }
+                })
+            });
 
-                    toCrawl.push(user);
-                });
-
-                toCrawl = [ { username: '_bongo' },  { username: 'afrenchinLA' } ];
-
-                crawl().start(toCrawl);
+            $(document).on('click', '#okc_crawler_crawl', function() {
+                getUsers([]);
             });
 
             $(document).on('click', "#okc_crawler_submit", function() {
@@ -74,9 +117,12 @@ var crawl = function() {
             storage.get(['crawling'], function(items) {
                 if (items.crawling) {
                     renderTemplate({});
-                }
 
-                crawl().crawl();
+                    setTimeout(function() {
+                        console.log('Crawling profile...');
+                        crawl().crawl();
+                    }, randomRange(1000, 4000));
+                }
             });
         }
     };
@@ -111,7 +157,7 @@ var crawl = function() {
             storage.set({"toCrawl": toCrawl, crawling: true}, function() {
                 console.log('Crawling...');
 
-                that.redirect("profile/" + user.username);
+                that.redirect("profile/" + user);
             });
         },
         stop: function(clearCrawlData) {
@@ -128,7 +174,7 @@ var crawl = function() {
 
             storage.set(options);
 
-            this.redirect('favorites');
+            this.redirect('match');
         },
         crawl: function() {
             var that = this;
@@ -148,6 +194,7 @@ var crawl = function() {
                             friend: '',
                             enemy: ''
                         },
+                        stoplight_color: '', // This was nicely on the page
                         essays: [],
                         profile_details: []
                     }
@@ -167,7 +214,6 @@ var crawl = function() {
                      */
                     crawlData.info = $(".userinfo .details .info").text();
 
-
                     /*
                      * Match percentages
                      */
@@ -178,6 +224,13 @@ var crawl = function() {
                         friend: $(".friend strong", mperElem).text(),
                         enemy: $(".enemy strong", mperElem).text()
                     };
+
+                    /*
+                     * How often they reply / stop light color
+                     */
+
+                    var classes = $(".message .icon").attr('class').split(" ");
+                    crawlData.stoplight_color = classes[1];
 
                     /*
                      * Profile details
@@ -207,7 +260,7 @@ var crawl = function() {
                         that.stop(false);
                         return;
                     } else {
-                        href = "profile/" + nextUser.username;
+                        href = "profile/" + nextUser;
                     }
 
                     that.setCrawlUsers(items.toCrawl);

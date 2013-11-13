@@ -21,6 +21,6 @@ html {
     padding: 10px;
 }
 
-.crawldata {
+#okc_crawler_crawling, .crawldata {
     display: none;
 }
